@@ -1,0 +1,23 @@
+# Encryption keys and cached auth
+*.key
+.toolkit-key
+
+# Admin-only config sources (sensitive)
+dependencies/Agent/toolkit-config.json
+dependencies/Agent/clients.csv
+
+# OS / Editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Build output
+/_builds/
+*.zip
+
+# Claude Code local config
+.claude/

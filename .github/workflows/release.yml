@@ -1,0 +1,48 @@
+name: Build Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Package Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat dependencies/version.txt | tr -d '[:space:]')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version: $VERSION"
+
+      - name: Create clean zip
+        run: |
+          zip -r endpoint-build-toolkit.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x ".claude/*" \
+            -x ".gitignore" \
+            -x ".gitattributes" \
+            -x "README.md" \
+            -x "dependencies/Agent/toolkit-config.json" \
+            -x "dependencies/Agent/Protect-Credentials.ps1" \
+            -x "dependencies/Agent/clients.csv" \
+            -x "*.key" \
+            -x "build.ps1" \
+            -x ".vscode/*" \
+            -x "_builds/*"
+
+      - name: Generate SHA-256 checksum
+        run: |
+          sha256sum endpoint-build-toolkit.zip | awk '{print $1}' > latest.sha256
+          echo "SHA-256: $(cat latest.sha256)"
+
+
