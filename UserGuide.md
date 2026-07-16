@@ -8,8 +8,8 @@ Welcome to the Endpoint Toolkit. This toolkit is a PowerShell-based endpoint onb
 
 ## Getting Started
 
-1. **Launch the Toolkit:** Run the `Launch.bat` file as an Administrator. (If you don't run it as Administrator, the toolkit will prompt and attempt to relaunch itself with the necessary privileges).
-2. **Authentication:** Upon launch, you will be prompted for a password (the password can be located by searching "Endpoint" in 1Password). You have up to 3 attempts. Successfully authenticating unlocks auth-gated features like USB Toolkit creation. You can choose to "Skip", but restricted features will remain locked.
+1. **Launch the Toolkit:** Run the `Launch.bat` file as an Administrator. (If you don't run it as Administrator, the toolkit will prompt and attempt to relaunch itself with the necessary privileges). The local base toolkit opens instantly and does not require a password.
+2. **Distributed/USB Kits (Authentication):** If you are running an exported toolkit `.exe` or a USB portable toolkit, you will be prompted for a password upon launch. You have up to 3 attempts. Successfully authenticating unlocks the toolkit and its features.
 3. **Navigation:** The toolkit interface consists of three main panels:
    - **Navigation Panel (Left):** Select modules to use, build a USB Toolkit, view the Session Report, or Quit.
    - **Action Panel (Center):** Displays the active module's interface (defaults to the Dashboard).
@@ -51,6 +51,13 @@ One-click troubleshooting for network connectivity issues.
 ---
 
 ## Advanced Usage
+
+### Exporting the Toolkit for Distribution
+You can package the toolkit into a secure, password-protected executable to send to external sites or client machines.
+1. Run `dependencies\Agent\Export-LockedToolkit.ps1` in a PowerShell console.
+2. Enter a custom password when prompted.
+3. Provide an output path (e.g., your Desktop).
+4. The script will bundle the entire toolkit and compile it into `EndpointToolkit_Locked.exe`. This `.exe` can be distributed safely and will require the password you set to unlock.
 
 ### USB Portable Mode (USB Toolkit)
 The USB Toolkit feature allows technicians to build a secure, portable, offline version of the toolkit for use at client sites with limited or no internet access.

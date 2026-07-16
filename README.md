@@ -38,10 +38,10 @@ For off-grid or low-bandwidth deployments, the toolkit can transform a standard 
 *   **Features:** Automated formatting (NTFS, labeled "TOOLKIT"), custom SFX passwords for runtime decryption, and rapid multi-machine onboarding through detached execution.
 
 ## 🔒 Zero-Trust Security Model
-The entire repository is built under a strict zero-trust philosophy.
-*   **No Hardcoded Secrets:** No credentials, API keys, or client data exist in plaintext. Everything is securely stored in `config.enc`.
-*   **Volatile Execution:** The application cleans up after itself. Upon exit, all temp files, downloaded MSI transforms, and active PowerShell sessions are explicitly wiped from memory and disk.
-*   **Encrypted Payloads:** `config.enc` uses AES-256-CBC encryption. The key is derived using 100,000 PBKDF2 iterations with a secure salt to aggressively defend against brute-force attacks.
+The toolkit distribution is built under a strict zero-trust philosophy.
+*   **Unlocked Base Repository:** The raw repository is completely unlocked and runs frictionless for developers or kit builders. 
+*   **Password-Protected SFX Export:** Using `Export-LockedToolkit.ps1`, administrators can compile the current toolkit into a password-protected, encrypted Self-Extracting Executable (SFX). The password generates an AES-256 `.sfx-key` to secure the distributed `.exe`.
+*   **Volatile Execution:** The distributed SFX application cleans up after itself. Upon clicking Quit, all temp files, extracted contents, downloaded installers, and active PowerShell sessions are explicitly wiped from memory and disk.
 
 ## 🏗️ Architecture & File Structure
 
@@ -76,7 +76,7 @@ Create a simple JSON array in `dependencies/Profiles/`:
 ```
 
 ## ⚙️ Administration & CI/CD
-*   **Credential Rotation:** Admin utilities like `Protect-Credentials.ps1` handle the encryption of new passwords, writing directly to `config.enc`. 
+*   **Secure Distribution:** Admin utilities like `Export-LockedToolkit.ps1` package the toolkit into an AES-secured SFX executable, ensuring kits sent to external sites cannot be executed without the password.
 *   **Automated Pipelines:** Merging code into the `main` branch triggers a GitHub Action that compiles a lean `.zip` and generates a `SHA-256` checksum for releases.
 
 ## 📋 Requirements
