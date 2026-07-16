@@ -200,9 +200,18 @@ function Start-ToolkitGUI {
 }
 
 function Show-AuthDialog {
-    $configEncPath = Join-Path $Global:SyncHash.Toolkit.Root 'Agent\config.enc'
+    $sfxKeyPath = Join-Path $Global:SyncHash.Toolkit.Parent '.sfx-key'
+    $cachedKeyPath = Join-Path $Global:SyncHash.Toolkit.Parent '.toolkit-key'
+    $isSfx = Test-Path $sfxKeyPath
+    $hasUsbCache = Test-Path $cachedKeyPath
 
-    if (-not (Test-Path $configEncPath)) { return }
+    # If this is the base toolkit folder (not an exported SFX and not a cached USB)
+    if (-not $isSfx -and -not ($Global:SyncHash.Toolkit.IsUsb -and $hasUsbCache)) {
+        Write-Log "Base Toolkit Mode - Running Unlocked" -Level Success
+        $Global:SyncHash.Toolkit.Authenticated = $true
+        $Global:SyncHash.ToolkitKey = "unlocked"
+        return
+    }
 
     # WPF password dialog (up to 3 attempts)
     $authXamlPath = Join-Path $Global:SyncHash.Toolkit.Root 'UI\AuthDialog.xaml'
@@ -220,15 +229,10 @@ function Show-AuthDialog {
         $txtPasswordReveal = $authWindow.FindName('txtPasswordReveal')
         $btnReveal   = $authWindow.FindName('btnReveal')
 
-        $sfxKeyPath = Join-Path $Global:SyncHash.Toolkit.Parent '.sfx-key'
-        $isSfx = Test-Path $sfxKeyPath
-
         if ($isSfx) {
-            $txtAuthMsg.Text = "Enter the SFX toolkit password to unlock. (Attempt $authAttempts/3)"
+            $txtAuthMsg.Text = "Enter the Toolkit password to unlock. (Attempt $authAttempts/3)"
         } elseif ($Global:SyncHash.Toolkit.IsUsb) {
-            $txtAuthMsg.Text = "Enter the USB toolkit password to unlock. (Attempt $authAttempts/3)"
-        } else {
-            $txtAuthMsg.Text = "Enter the toolkit password to unlock all features. (Attempt $authAttempts/3)"
+            $txtAuthMsg.Text = "Enter the USB Toolkit password to unlock. (Attempt $authAttempts/3)"
         }
 
         $script:authSubmitted = $false
@@ -269,65 +273,51 @@ function Show-AuthDialog {
         if ([string]::IsNullOrWhiteSpace($enteredKey)) { continue }
 
         $mainKeyToUse = $enteredKey
+        $isValid = $false
         $usbUnlocked = $false
 
-        # If on USB, try to unlock the cached key using the entered password
         if ($isSfx) {
             try {
                 $encryptedCache = (Get-Content $sfxKeyPath -Raw).Trim()
                 $mainKeyToUse = Unprotect-SfxPassword -EncryptedData $encryptedCache -SfxPassword $enteredKey
-                $usbUnlocked = $true
+                if ($mainKeyToUse) { $isValid = $true }
             } catch {
                 # Decryption of the SFX key failed
             }
-        } elseif ($Global:SyncHash.Toolkit.IsUsb) {
-            $cachedKeyPath = Join-Path $Global:SyncHash.Toolkit.Parent '.toolkit-key'
-            if (Test-Path $cachedKeyPath) {
-                try {
-                    $driveLetter = $Global:SyncHash.Toolkit.UsbDrive
-                    $usbSerial = Get-DriveSerial -DriveLetter $driveLetter
-                    if ($usbSerial) {
-                        $encryptedCache = (Get-Content $cachedKeyPath -Raw).Trim()
-                        $mainKeyToUse = Unprotect-CachedPassword -EncryptedData $encryptedCache -DriveSerial $usbSerial -UserPassword $enteredKey
+        } elseif ($Global:SyncHash.Toolkit.IsUsb -and $hasUsbCache) {
+            try {
+                $driveLetter = $Global:SyncHash.Toolkit.UsbDrive
+                $usbSerial = Get-DriveSerial -DriveLetter $driveLetter
+                if ($usbSerial) {
+                    $encryptedCache = (Get-Content $cachedKeyPath -Raw).Trim()
+                    $mainKeyToUse = Unprotect-CachedPassword -EncryptedData $encryptedCache -DriveSerial $usbSerial -UserPassword $enteredKey
+                    if ($mainKeyToUse) { 
+                        $isValid = $true
                         $usbUnlocked = $true
                     }
-                } catch {
-                    # Decryption of the cached key failed. We will fall through and try the entered key directly on the config.
                 }
+            } catch {
+                # Decryption of the cached key failed.
             }
         }
 
-        try {
-            $Global:SyncHash.Toolkit.Config = Unprotect-ToolkitConfig -Password $mainKeyToUse -EncPath $configEncPath
+        if ($isValid) {
             $Global:SyncHash.Toolkit.Authenticated = $true
             $Global:SyncHash.ToolkitKey = $mainKeyToUse
 
             if ($isSfx) {
                 Remove-Item $sfxKeyPath -Force -ErrorAction SilentlyContinue
             }
-
-            # Offer to update USB cache only if we didn't just unlock via a valid USB cache
-            if ($Global:SyncHash.Toolkit.IsUsb -and -not $usbUnlocked) {
-                $result = [System.Windows.MessageBox]::Show(
-                    'Update the saved password on this USB?',
-                    'Update USB Cache', 'YesNo', 'Question')
-                if ($result -eq 'Yes') {
-                    $usbSerial = Get-DriveSerial -DriveLetter $Global:SyncHash.Toolkit.UsbDrive
-                    if ($usbSerial) {
-                        $cachedKeyPath = Join-Path $Global:SyncHash.Toolkit.Parent '.toolkit-key'
-                        # In this fallback case, the enteredKey is the mainKeyToUse, so we bind it without a separate user password
-                        $encrypted = Protect-CachedPassword -Password $enteredKey -DriveSerial $usbSerial
-                        Set-Content -Path $cachedKeyPath -Value $encrypted -NoNewline -Force
-                        (Get-Item $cachedKeyPath -Force).Attributes = 'Hidden'
-                    }
-                }
-            }
-        } catch {
+        } else {
             $remaining = 3 - $authAttempts
             if ($remaining -gt 0) {
                 [System.Windows.MessageBox]::Show(
                     "Invalid password. $remaining attempt(s) remaining.",
                     'Authentication Failed', 'OK', 'Warning') | Out-Null
+            } else {
+                [System.Windows.MessageBox]::Show(
+                    "Authentication failed after 3 attempts.",
+                    'Authentication Failed', 'OK', 'Error') | Out-Null
             }
         }
     }
