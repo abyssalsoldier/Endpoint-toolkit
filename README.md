@@ -1,49 +1,44 @@
-# Endpoint Toolkit
+# Endpoint Toolkit Architecture
 
-A powerful, PowerShell-based endpoint onboarding and automation toolkit designed for managed service providers (MSPs). It provides technicians with a unified, responsive WPF interface to efficiently configure, diagnose, and deploy software to Windows client workstations—both on-site via secure USB and remotely via cloud download.
+A powerful, PowerShell-based endpoint onboarding and automation toolkit designed for managed service providers (MSPs). This document outlines the technical architecture, security mechanisms, and extensibility of the toolkit. For step-by-step instructions on *using* the toolkit, please see the [User Guide](UserGuide.md).
 
-## 🌟 Core Features & How They Work
+## 🏗️ Core Architecture & UI
 
-### 📊 Comprehensive Health Dashboard
-The default landing screen is a live, data-rich dashboard that aggregates system metrics in real-time.
-*   **How it works:** The UI utilizes background PowerShell runspaces to execute non-blocking WMI/CIM queries, ensuring the WPF interface remains highly responsive while gathering deep system metrics.
-*   **Features:**
-    *   **Identity & Domain:** Instantly fetches Hostname, Serial Number, OS Build, and Active Directory / Azure AD join status.
-    *   **Health Badges:** Evaluates the state of critical services (Windows Defender, Firewall, BitLocker, TPM, SentinelOne, BitDefender) and renders clear color-coded health badges.
-    *   **Hardware Telemetry:** Real-time CPU and RAM utilization using visual progress bars, alongside disk health and type detection.
-    *   **Network Status:** Surfaces active adapter details, Gateway, and DNS configurations instantly.
+### WPF & PowerShell Runspaces
+The toolkit interface is built using Windows Presentation Foundation (WPF) rendered entirely via PowerShell. To prevent the UI thread from freezing during long-running tasks (like software installations or WMI queries), the toolkit employs an advanced asynchronous **Runspace Architecture**:
+*   **Synchronized State:** A global thread-safe synchronized hash table (`$Global:SyncHash`) is used to pass data seamlessly between the background runspaces and the primary UI thread.
+*   **Non-Blocking Execution:** Heavy tasks (e.g., retrieving system metrics, polling Winget, joining domains) are dispatched to independent runspaces. When complete, a dispatcher invokes updates directly back to the WPF UI controls, keeping the dashboard highly responsive.
 
-### 🔌 Extensible Module System
-The toolkit is built on a dynamic, plug-and-play architecture. Modules are automatically discovered and registered simply by dropping a `.ps1` file into the `Modules/` directory with a `Register-*` function. All heavy lifting within modules is passed to background runspaces to keep the UI perfectly fluid.
+### Extensible Module System
+The toolkit is built on a dynamic, plug-and-play architecture:
+*   **Auto-Discovery:** Modules are automatically discovered and registered by dropping a `.ps1` file into the `dependencies/Modules/` directory.
+*   **Registration:** Modules must expose a `Register-<Name>` function returning a hash table with `Name`, `Label`, `RequiresAuth`, `EntryPoint`, and `UIDefinition`. The core orchestrator dynamically builds the navigation menu based on these functions.
 
-#### 📦 Unified Software Manager (Winget + Local Installers)
-*   **How it works:** This module operates as a hybrid package manager. It dynamically queries Microsoft's `winget` repository alongside a directory of bundled local installers, unifying them into a single installation queue.
-*   **Features:** 
-    *   Categorized software grids (Browsers, Utilities, Runtimes, etc.).
-    *   **JSON Profiles:** Administrators can define per-client `.json` builds that technicians load via a dropdown to automatically check required software.
-    *   **Automated Bootstrapping:** Automatically detects and installs the winget framework if the endpoint is missing it.
-    *   Batch execution with per-package UI progress tracking.
+## 🔒 Zero-Trust Security & Distribution
 
-#### 🖥️ Computer Management & 🌐 Network Diagnostics
-*   **Computer Management:** Allows technicians to seamlessly rename the workstation (with a quick-copy button for the hardware serial) and execute domain joins for local AD or Azure AD directly from the toolkit.
-*   **Network Diagnostics:** A single-click troubleshooting suite that rapidly validates internet connectivity, DNS resolution, Gateway pings, public DNS bypasses, and DHCP status, returning instantaneous Pass/Fail metrics to quickly isolate breaking points.
+The toolkit handles sensitive environment access, so the entire repository and execution lifecycle is built under a strict zero-trust philosophy.
 
-### 🛡️ Hardware-Bound USB Portable Mode
-For off-grid or low-bandwidth deployments, the toolkit can transform a standard USB flash drive into a secure, self-contained toolkit.
-*   **How it works (The Security Deep-Dive):**
-    *   When creating the drive, the toolkit dynamically compiles a standalone C# Self-Extracting Executable (SFX) named `EndpointToolkit.exe` that contains the entire toolkit and bundled offline installers.
-    *   During compilation, the **physical hardware serial number** of the flash drive's controller chip is hardcoded directly into the executable's source code.
-    *   When executed, the SFX verifies the current drive's hardware serial number. If the executable was copied to another device or local drive, the extraction instantly aborts, ensuring the payload remains secure.
-    *   Once extraction finishes, the `.exe` detaches and exits immediately. This allows the technician to **pull the USB drive** and plug it into the next computer while the toolkit continues running in memory on the current machine!
-*   **Features:** Automated formatting (NTFS, labeled "TOOLKIT"), custom SFX passwords for runtime decryption, and rapid multi-machine onboarding through detached execution.
+### Unlocked Base Repository
+The raw repository code (in `dependencies/`) contains no hardcoded credentials, API keys, or client data. When run locally via `Launch.bat`, the base toolkit launches completely unlocked. This ensures a frictionless experience for developers and kit builders.
 
-## 🔒 Zero-Trust Security Model
-The toolkit distribution is built under a strict zero-trust philosophy.
-*   **Unlocked Base Repository:** The raw repository is completely unlocked and runs frictionless for developers or kit builders. 
-*   **Password-Protected SFX Export:** Using `Export-LockedToolkit.ps1`, administrators can compile the current toolkit into a password-protected, encrypted Self-Extracting Executable (SFX). The password generates an AES-256 `.sfx-key` to secure the distributed `.exe`.
-*   **Volatile Execution:** The distributed SFX application cleans up after itself. Upon clicking Quit, all temp files, extracted contents, downloaded installers, and active PowerShell sessions are explicitly wiped from memory and disk.
+### Password-Protected SFX Export
+For external deployment, the toolkit can be securely compiled using `Export-LockedToolkit.ps1`. 
+*   **Compilation:** The script copies the raw toolkit into a temporary folder, prompts the admin for a distribution password, and generates an AES-256 encrypted `.sfx-key`. 
+*   **Stub Injection:** It compiles a standalone C# Self-Extracting Executable (SFX) on the fly and binds the zip payload to it.
+*   **Execution:** When run on a client machine, the SFX demands the correct password to decrypt the `.sfx-key` before allowing access.
 
-## 🏗️ Architecture & File Structure
+### Hardware-Bound USB Portable Mode
+For off-grid environments, the toolkit can transform a standard USB flash drive into a secure, self-contained payload via the `Setup-UsbToolkit` module.
+*   **Hardware Binding:** During compilation, the toolkit queries WMI to retrieve the physical hardware serial number of the USB drive's controller chip. This serial is injected directly into the C# SFX source code before compiling.
+*   **Anti-Tampering:** When executed on an endpoint, the SFX verifies the current drive's hardware serial against the hardcoded hash. If the `.exe` was copied to a local drive or a different USB stick, extraction instantly aborts.
+
+### Volatile Execution & Cleanup
+Whether executing from a distributed SFX `.exe` or a USB drive, the toolkit strictly enforces ephemeral execution:
+1.  **Extraction:** Payloads are extracted silently to a randomized folder in the Windows `%TEMP%` directory.
+2.  **Detached Execution:** Once the payload launches, the `.exe` detaches and exits immediately. (For USBs, this allows the technician to pull the drive and move to the next PC while the toolkit remains running in memory).
+3.  **Wipe:** Upon clicking the **Quit** button in the UI, a cleanup routine explicitly wipes all temporary folders, downloaded installers, decrypted keys, and active PowerShell sessions from memory and disk.
+
+## 📂 File Structure
 
 ```text
 endpoint-build-toolkit/
@@ -54,33 +49,17 @@ endpoint-build-toolkit/
 │   ├── UI/                             XAML layouts and Runspace synchronization
 │   ├── Modules/                        Feature Modules (Software, Diagnostics)
 │   ├── Profiles/                       JSON templates for client software builds
-│   ├── Agent/                          Encrypted configurations and admin tools
-│   └── CustomInstallers/               Bundled static installers
-└── .github/workflows/release.yml       CI/CD automated release build pipeline
+│   ├── Agent/                          Admin tools (e.g., Export-LockedToolkit.ps1)
+│   └── CustomInstallers/               Bundled static offline installers
 ```
 
-## 🚀 Adding New Modules & Profiles
+## ⚙️ Administration & Requirements
 
-**Creating a Module:**
-1. Drop a `.ps1` file into `dependencies/Modules/`.
-2. Define a `Register-<Name>` function that returns UI and EntryPoint metadata. 
-3. The toolkit handles the rest, automatically registering it and rendering it in the Navigation panel.
+### Automated Software Provisioning
+The `Install-Software` module acts as a hybrid package manager. It dynamically queries Microsoft's `winget` repository alongside the `CustomInstallers/` directory. If `winget` is missing from the target endpoint, the toolkit will automatically bootstrap and install it before proceeding.
 
-**Adding a Client Profile:**
-Create a simple JSON array in `dependencies/Profiles/`:
-```json
-{
-    "name": "Standard Build",
-    "packages": ["Google.Chrome", "7zip.7zip", "Microsoft.Teams"]
-}
-```
-
-## ⚙️ Administration & CI/CD
-*   **Secure Distribution:** Admin utilities like `Export-LockedToolkit.ps1` package the toolkit into an AES-secured SFX executable, ensuring kits sent to external sites cannot be executed without the password.
-*   **Automated Pipelines:** Merging code into the `main` branch triggers a GitHub Action that compiles a lean `.zip` and generates a `SHA-256` checksum for releases.
-
-## 📋 Requirements
+### Requirements
 *   **OS:** Windows 10 / 11
-*   **PowerShell:** v5.1 minimum (v7+ seamlessly preferred)
-*   **Privileges:** Local Administrator (toolkit will self-elevate if needed)
-*   **Connectivity:** Internet required for winget (unless running in offline USB Portable Mode).
+*   **PowerShell:** v5.1 minimum (v7+ natively preferred by Launch.bat)
+*   **Privileges:** Local Administrator (toolkit will prompt to self-elevate)
+*   **Connectivity:** Internet required for winget (unless running fully cached in USB Portable Mode).

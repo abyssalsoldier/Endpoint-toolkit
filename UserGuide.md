@@ -1,85 +1,77 @@
-# Endpoint Toolkit - User Guide
+# Endpoint Toolkit - Technician Manual
 
-**⚠️ Important Restrictions Regarding USB Usage:**
-* **Do not manually install to USB:** The toolkit program itself should not be manually copied or installed onto a USB drive. You must use the toolkit's built-in **USB Toolkit** builder to create a functional portable drive.
-* **Hardware Binding:** Because the offline authentication is cryptographically bound to the physical USB drive's hardware serial number, copying the files from a working USB drive to any other device, local computer, or another flash drive **will not work**.
+Welcome to the Endpoint Toolkit. This manual provides step-by-step instructions for technicians to efficiently set up, configure, and onboard Windows client workstations.
 
-Welcome to the Endpoint Toolkit. This toolkit is a PowerShell-based endpoint onboarding automation utility designed for technicians to efficiently set up and configure Windows client workstations, whether on-site or remotely.
+## 🚀 Getting Started
 
-## Getting Started
-
-1. **Launch the Toolkit:** Run the `Launch.bat` file as an Administrator. (If you don't run it as Administrator, the toolkit will prompt and attempt to relaunch itself with the necessary privileges). The local base toolkit opens instantly and does not require a password.
-2. **Distributed/USB Kits (Authentication):** If you are running an exported toolkit `.exe` or a USB portable toolkit, you will be prompted for a password upon launch. You have up to 3 attempts. Successfully authenticating unlocks the toolkit and its features.
-3. **Navigation:** The toolkit interface consists of three main panels:
-   - **Navigation Panel (Left):** Select modules to use, build a USB Toolkit, view the Session Report, or Quit.
-   - **Action Panel (Center):** Displays the active module's interface (defaults to the Dashboard).
-   - **Log Panel (Bottom):** Shows live, color-coded execution logs and timestamps. You can resize this panel.
+1. **Launch the Toolkit:** Double-click the `Launch.bat` file.
+   * If you are running the local base repository, it will open instantly.
+   * If you are running a distributed `.exe` or a USB portable toolkit, you will be prompted for a password. You have up to 3 attempts. Successfully authenticating unlocks the toolkit and its features.
+2. **Navigation:** The toolkit interface consists of three main panels:
+   * **Navigation Panel (Left):** Select modules to use (Dashboard, Software Manager, etc.), build a USB Toolkit, view the Session Report, or Quit.
+   * **Action Panel (Center):** Displays the active module's interface (defaults to the Dashboard).
+   * **Log Panel (Bottom):** Shows live execution logs. You can click and drag to resize this panel.
 
 ---
 
-## Features and Modules
+## 🛠️ Using the Modules
 
-### Dashboard (Default View)
-The Dashboard provides an immediate, comprehensive overview of the endpoint's current state:
-* **Identity:** Hostname, Serial Number, Manufacturer/Model, OS Version/Build, and Domain status.
-* **Health Badges:** Quick color-coded indicators (Green = Good, Red = Issue, Yellow = Warning, Gray = Unknown/Inactive) for Windows Defender, Firewall, BitLocker, TPM, SentinelOne, BitDefender, and Pending Reboots.
-* **Hardware:** CPU and RAM usage (with visual progress bars), disk usage, health, and type.
-* **Network:** Active network adapter details, IP Address, Gateway, DNS, and Azure AD join status.
-* **Refresh Button:** Re-check and update all dashboard data (useful after running installations or fixes).
+### 📊 Dashboard
+The Dashboard provides an immediate, comprehensive overview of the endpoint's current state.
+* **Review Health Badges:** Quickly scan the color-coded indicators for Windows Defender, Firewall, BitLocker, TPM, SentinelOne, and BitDefender.
+    * 🟢 **Green:** Healthy / Active
+    * 🔴 **Red:** Issue / Disabled
+    * 🟡 **Yellow:** Warning (e.g. pending reboot)
+    * ⚪ **Gray:** Unknown or Not Installed
+* **Check Resources:** Monitor live CPU and RAM usage via the visual progress bars.
+* **Refresh Data:** After running installations or fixes in other modules, click the **Refresh** button at the top to re-poll all system data.
 
-### Software Manager
-A unified software installer that pulls packages from Windows Package Manager (winget) and local bundled installers.
-* **Categorized Selection:** Browse and select software via a checkbox grid categorized into Browsers, Productivity, Communication, Runtimes, and Utilities.
-* **Client Profiles:** Load per-client JSON profiles from a dropdown menu to auto-populate the necessary checkboxes for standardized builds.
-* **Batch Install:** Install multiple selected packages sequentially with individual progress tracking. It will automatically bootstrap `winget` if it is missing from the system.
+### 📦 Software Manager
+A unified software installer that pulls packages from Winget and local bundled installers.
+1. **Load a Profile:** Click the **Client Profile** dropdown menu. Select a client's JSON profile to automatically check all software required for their standard build.
+2. **Manual Selection:** Browse the categorized grids (Browsers, Productivity, etc.) and check/uncheck software manually as needed.
+3. **Execute:** Click **Install Selected Software**. The toolkit will batch install everything sequentially, providing progress updates in the log panel. If Winget is missing on the machine, it will automatically install it first.
 
-### Computer Management
+### 🖥️ Computer Management
 Simplifies renaming the workstation and joining it to a domain.
-* **Rename Computer:** Displays the current computer name alongside the hardware serial number (with a convenient copy button) to easily standardize names.
-* **Domain Join:** Allows joining to a local Active Directory (providing domain, username, and password fields) or Azure AD (by launching the native Windows system settings).
-* *Note: Does not require toolkit authentication.*
+* **Copy Serial Number:** Your current computer name and hardware serial number are displayed. Click the **Copy** button next to the serial number to quickly copy it to your clipboard for asset tracking.
+* **Rename Computer:** Type a new name into the field and click **Rename**. (Requires a reboot to take effect).
+* **Join Local Domain:** Enter the target Domain Name, along with your admin Username and Password, and click **Join Domain**. (Requires a reboot).
+* **Join Azure AD (Entra ID):** Click the **Open Azure AD Join Screen** button. This instantly launches the native Windows "Access work or school" settings panel so you can complete the Entra join process.
 
-### Network Diagnostics
+### 🌐 Network Diagnostics
 One-click troubleshooting for network connectivity issues.
-* **Automated Checks:** Tests internet connectivity, DNS resolution, Gateway ping, DNS server ping, public DNS bypass, and DHCP status.
-* **Clear Results:** Provides straightforward Pass/Fail indicators for each test to quickly identify the breaking point in the network chain.
-* *Note: Does not require toolkit authentication.*
-
-### Client Templates
-*Placeholder feature - Coming in a future release.* Will allow the application of broader client-specific software and configuration templates.
+* **Run Diagnostics:** Click the **Start Diagnostics** button. The toolkit will systematically test local connectivity, DNS resolution, Gateway ping, and DHCP status.
+* **Review Results:** Each test provides a straightforward Pass/Fail indicator. If the "DNS Server Ping" fails but the "Public DNS Ping (1.1.1.1)" passes, you instantly know it's a local DNS issue and not an internet outage.
 
 ---
 
-## Advanced Usage
+## 🔒 Advanced Distribution
 
-### Exporting the Toolkit for Distribution
-You can package the toolkit into a secure, password-protected executable to send to external sites or client machines.
-1. Run `dependencies\Agent\Export-LockedToolkit.ps1` in a PowerShell console.
-2. Enter a custom password when prompted.
-3. Provide an output path (e.g., your Desktop).
-4. The script will bundle the entire toolkit and compile it into `EndpointToolkit_Locked.exe`. This `.exe` can be distributed safely and will require the password you set to unlock.
+### 📤 Exporting a Standalone Toolkit (For Remote Clients)
+You can package your toolkit into a secure, password-protected executable (`.exe`) to email or send to external sites.
+1. Open a PowerShell console as Administrator.
+2. Run the export script: `.\dependencies\Agent\Export-LockedToolkit.ps1`
+3. Enter a custom password when prompted (the recipient will need this password).
+4. Provide an output path (e.g., `C:\Users\Public\Desktop`).
+5. The script will bundle the entire toolkit and compile it into `EndpointToolkit_Locked.exe`.
 
-### USB Portable Mode (USB Toolkit)
-The USB Toolkit feature allows technicians to build a secure, portable, offline version of the toolkit for use at client sites with limited or no internet access.
-
-**How to build:**
-1. Insert a USB drive.
-2. Select the **USB Toolkit** button in the left navigation panel.
-3. Use **Prepare Drive** to format the drive to NTFS and label it "TOOLKIT".
-4. Input your custom password into the **USB Toolkit Password (Required)** field.
-5. The module will package the toolkit and all bundled installers into a single `EndpointToolkit.exe` file on your USB drive.
+### 💾 Building a USB Portable Toolkit (For Offline Sites)
+The USB Toolkit allows you to build a secure, portable, offline version for client sites with zero internet access.
+1. Insert a USB flash drive.
+2. Click the **USB Toolkit** button in the left navigation panel.
+3. Click **Prepare Drive** to automatically format the drive to NTFS and label it "TOOLKIT".
+4. Input your custom password into the **USB Toolkit Password** field.
+5. Click **Build USB Toolkit**. The module will package the toolkit and all local installers into an `EndpointToolkit.exe` file on your USB drive.
 
 **Using the USB Toolkit:**
 1. Plug the USB drive into a client computer and double-click `EndpointToolkit.exe`.
-2. **Hardware-Bound Protection:** The executable will verify that it is running from the original authorized USB drive. If copied elsewhere, it will refuse to run.
-3. **Detached Execution:** Once the `.exe` extracts the payload to the local temporary folder, it will launch the toolkit and the `.exe` will immediately close itself. **You can safely unplug the USB drive at this point and move to the next computer!**
-4. Enter your custom password into the GUI prompt to decrypt the toolkit and unlock its features.
+2. The executable will verify it is running from the original authorized USB drive.
+3. Once it extracts, the `.exe` will close immediately. **You can safely unplug the USB drive at this point and move to the next computer!**
+4. Enter your custom password to decrypt the toolkit and unlock its features.
 
 ---
 
-## Security and Cleanup
-The Endpoint Toolkit is designed with security in mind:
-* **No Persistent Data:** All temporary files and injected credentials are automatically wiped from the endpoint when the toolkit is closed.
-* **Hidden Credentials:** Admin credentials are AES-256 encrypted and are never displayed within the UI. 
-
-Always ensure you close the toolkit properly using the **Quit** button to allow the cleanup processes to complete successfully.
+## 🧹 Proper Cleanup
+* **Always use the Quit button:** When you are finished, click the **Quit** button in the bottom-left corner of the navigation panel.
+* This explicitly triggers the Zero-Trust cleanup routines, wiping all temporary files, extracted contents, and session data from the endpoint. Do not simply click the "X" in the top right corner.
